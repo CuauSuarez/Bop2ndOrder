@@ -1,0 +1,4 @@
+click==7.1.2
+tensorflow-datasets==2.1.0
+larq==0.10.0
+zookeeper==0.5.5
