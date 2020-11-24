@@ -15,19 +15,19 @@ def install_requires():
 setup(
     name="bop-2nd-order",
     version="0.1.0",
-    author="Cuau",
-    author_email="cuaudsr@gmail.com",
+    author="Anonymous",
+    author_email="anony@mous.com",
     description='Implementation for paper "Bop and Beyond"',
     long_description=readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/plumerai/rethinking-bnn-optimization.git",
+    url="",
     packages=find_packages(),
     python_requires=">=3.6",
     license="Apache 2.0",
     install_requires=install_requires(),
     extras_require={
-        "tensorflow": ["tensorflow==2.0.0"],
-        "tensorflow_gpu": ["tensorflow-gpu==2.0.0"],
+        "tensorflow": ["tensorflow==2.3.0"],
+        "tensorflow_gpu": ["tensorflow-gpu==2.3.0"],
     },
     entry_points="""
         [console_scripts]
