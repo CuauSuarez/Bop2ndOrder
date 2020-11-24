@@ -41,6 +41,7 @@ def train(build_model, dataset, hparams, output_dir, tensorboard):
         model.compile(
             optimizer=hparams.optimizer,
             loss="categorical_crossentropy",
+            #loss="sparse_categorical_crossentropy",
             metrics=["categorical_accuracy", "top_k_categorical_accuracy"],
         )
         lq.models.summary(model)
