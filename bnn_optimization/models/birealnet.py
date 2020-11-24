@@ -75,97 +75,6 @@ def birealnet(hparams, input_shape, num_classes):
 
 
 @registry.register_hparams(birealnet)
-class bop(HParams):
-    epochs = 300
-    batch_size = 1024
-
-    threshold = 1e-8
-
-    gamma_start = 1e-4
-    gamma_end = 1e-6
-    
-
-    lr_start = 2.5e-3
-    lr_end = 5e-6
-
-    @property
-    def optimizer(self):
-        decay_step = self.epochs * 1281167 // self.batch_size
-        lr = tf.keras.optimizers.schedules.PolynomialDecay(
-            self.lr_start, decay_step, end_learning_rate=self.lr_end, power=1.0
-        )
-        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
-            self.gamma_start, decay_step, end_learning_rate=self.gamma_end, power=1.0
-        )
-        
-        '''
-        return optimizers.Bop(
-            tf.keras.optimizers.Adam(lr), threshold=self.threshold, gamma=gamma
-        )
-        '''
-        
-        return lq.optimizers.CaseOptimizer(
-            (optimizers.Bop.is_binary_variable, 
-                optimizers.Bop(
-                    threshold=self.threshold,
-                    gamma=gamma,
-                    name="Bop"
-                )
-            ),
-            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
-        ) 
-        
-        
-@registry.register_hparams(birealnet)
-class bop2ndorder(HParams):
-    epochs = 300
-    batch_size = 256
-
-    threshold = 1e-7
-
-    gamma_start = 1e-4
-    gamma_end = 1e-6
-    
-    sigma_start = 1e-3
-    sigma_end = 1e-5
-
-    lr_start = 2.5e-3
-    lr_end = 5e-6
-    
-
-    @property
-    def optimizer(self):
-        decay_step = self.epochs * 1281167 // self.batch_size
-        lr = tf.keras.optimizers.schedules.PolynomialDecay(
-            self.lr_start, decay_step, end_learning_rate=self.lr_end, power=1.0
-        )
-        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
-            self.gamma_start, decay_step, end_learning_rate=self.gamma_end, power=1.0
-        )
-        sigma = tf.keras.optimizers.schedules.PolynomialDecay(
-            self.sigma_start, decay_step, end_learning_rate=self.sigma_end, power=1.0
-        )
-        
-        '''
-        return optimizers.Bop2ndOrder(
-            tf.keras.optimizers.Adam(lr), threshold=self.threshold, gamma=gamma, gamma2=gamma2
-        )
-        '''
-        
-        return lq.optimizers.CaseOptimizer(
-            (optimizers.Bop2ndOrder.is_binary_variable, 
-                optimizers.Bop2ndOrder(
-                    threshold=self.threshold,
-                    gamma=gamma,
-                    sigma=sigma,
-                    name="Bop2ndOrder"
-                )
-            ),
-            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
-        ) 
-
-
-@registry.register_hparams(birealnet)
 class bopBase(HParams):
     epochs = 400
     batch_size = 256
@@ -181,17 +90,10 @@ class bopBase(HParams):
     @property
     def optimizer(self):
         decay_step = self.epochs * 1281167 // self.batch_size
+        
         lr = tf.keras.optimizers.schedules.PolynomialDecay(
             self.lr_start, decay_step, end_learning_rate=self.lr_end, power=1.0
         )
-        
-        '''
-        return optimizers.Bop(
-            tf.keras.optimizers.Adam(lr), 
-            threshold=self.threshold, 
-            gamma=self.gamma
-        )
-        '''
         
         return lq.optimizers.CaseOptimizer(
             (optimizers.Bop.is_binary_variable, 
@@ -203,10 +105,50 @@ class bopBase(HParams):
             ),
             default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
         ) 
-        
-        
+
+
 @registry.register_hparams(birealnet)
-class bop2ndorderBase(HParams):
+class bop(HParams):
+    epochs = 300
+    epochs_decay = 300
+    
+    train_samples = 1281167
+    batch_size = 1024
+
+    threshold = 1e-8
+
+    gamma_start = 1e-4
+    gamma_end = 1e-6
+    
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+
+    @property
+    def optimizer(self):
+        decay_step = self.epochs_decay * self.train_samples // self.batch_size
+        
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_step, end_learning_rate=self.lr_end, power=1.0
+        )
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_step, end_learning_rate=self.gamma_end, power=1.0
+        )
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop.is_binary_variable, 
+                optimizers.Bop(
+                    threshold=self.threshold,
+                    gamma=gamma,
+                    name="Bop"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        ) 
+        
+    
+@registry.register_hparams(birealnet)
+class bop2ndorder(HParams):
     epochs = 300
     batch_size = 256
 
@@ -220,14 +162,7 @@ class bop2ndorderBase(HParams):
 
     @property
     def optimizer(self):
-        '''
-        return optimizers.Bop2ndOrder(
-            tf.keras.optimizers.Adam(self.lr), 
-            threshold=self.threshold, 
-            gamma=self.gamma, 
-            gamma2=self.gamma2
-        )
-        '''
+
         
         return lq.optimizers.CaseOptimizer(
             (optimizers.Bop2ndOrder.is_binary_variable, 
@@ -240,3 +175,357 @@ class bop2ndorderBase(HParams):
             ),
             default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
         ) 
+
+
+@registry.register_hparams(birealnet)
+class bop2ndorder_unbiased(HParams):
+    epochs = 300
+    
+    batch_size = 256
+
+    threshold = 1e-8
+
+    gamma = 1e-5
+    sigma = 1e-6
+
+    lr = 0.01
+    
+
+    @property
+    def optimizer(self):
+
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder_unbiased.is_binary_variable, 
+                optimizers.Bop2ndOrder_unbiased(
+                    threshold=self.threshold,
+                    gamma=self.gamma,
+                    sigma=self.sigma,
+                    name="Bop2ndOrder_unbiased"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
+        ) 
+
+
+###############################################################################################
+
+@registry.register_hparams(birealnet)
+class bop_testExp(HParams):
+    epochs = 100
+    epochs_decay = 100
+    
+    train_samples = 50000
+    batch_size = 50
+
+    threshold = 1e-6
+    threshold_decay = 0.1
+    
+    gamma = 1e-7
+    gamma_decay = 0.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    
+
+    
+    lr = 0.01
+    lr_decay = 0.1
+
+    
+    @property
+    def optimizer(self):
+        decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
+    
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop.is_binary_variable, 
+                optimizers.Bop(
+                    threshold=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.threshold, self.decay_step, self.threshold_decay, staircase=True
+                    ),
+                    gamma=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.gamma, self.decay_step, self.gamma_decay, staircase=True
+                    ),
+                    name="Bop"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(
+                tf.keras.optimizers.schedules.ExponentialDecay(
+                    self.lr, self.decay_step, self.lr_decay, staircase=True
+                ),
+            ),  # for FP weights
+        )
+        
+        
+
+@registry.register_hparams(birealnet)
+class bop_testPoly(HParams):
+    epochs = 100
+    epochs_decay = 100
+    
+    train_samples = 1281167
+    batch_size = 50
+    
+    
+    threshold_start = 1e-6
+    threshold_end = 1e-8
+    
+    
+    gamma_start = 1e-7
+    gamma_end = 1e-8
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+    
+    
+    @property
+    def optimizer(self):
+        decay_steps = self.epochs_decay * self.train_samples // self.batch_size
+         
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_steps, self.lr_end, power=1.0
+        )
+        
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_steps, self.gamma_end, power=1.0
+        )
+        
+        threshold = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.threshold_start, decay_steps, self.threshold_end, power=1.0
+        )
+        
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop.is_binary_variable, 
+                optimizers.Bop(
+                    threshold=threshold,
+                    gamma=gamma,
+                    name="Bop"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        )
+
+
+
+
+
+
+###############################################################################################
+
+@registry.register_hparams(birealnet)
+class bop2ndOrder_testExp(HParams):
+    epochs = 300
+    epochs_decay = 100
+    
+    train_samples = 50000
+    batch_size = 100
+    
+    threshold = 1e-5
+    threshold_decay = 0.1
+    
+    gamma = 1e-7
+    gamma_decay = 0.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    
+    sigma = 1e-3
+    sigma_decay = 0.1
+
+    
+    lr = 0.01
+    lr_decay = 0.1    
+        
+        
+    @property
+    def optimizer(self):
+        decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
+    
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder.is_binary_variable, 
+                optimizers.Bop2ndOrder(
+                    threshold=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.threshold, decay_step, self.threshold_decay, staircase=True
+                    ),
+                    gamma=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.gamma, decay_step, self.gamma_decay, staircase=True
+                    ),
+                    sigma=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.sigma, decay_step, self.sigma_decay, staircase=True
+                    ),
+                    name="Bop2ndOrder"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(
+                tf.keras.optimizers.schedules.ExponentialDecay(
+                    self.lr, decay_step, self.lr_decay, staircase=True
+                ),
+            ),  # for FP weights
+        )
+        
+
+
+@registry.register_hparams(birealnet)
+class bop2ndOrder_testPoly(HParams):
+    epochs = 300
+    epochs_decay = 300
+    
+    train_samples = 1281167
+    batch_size = 100
+    
+    threshold_start = 1e-5
+    threshold_end = 1e-7
+    
+    
+    gamma_start = 1e-7
+    gamma_end = 1e-8
+    
+    sigma_start = 1e-3
+    sigma_end = 1e-5
+    
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+    
+    
+    @property
+    def optimizer(self):
+        decay_steps = self.epochs_decay * self.train_samples // self.batch_size
+         
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_steps, self.lr_end, power=1.0
+        )
+        
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_steps, self.gamma_end, power=1.0
+        )
+        
+        sigma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.sigma_start, decay_steps, self.sigma_end, power=1.0
+        )
+        
+        threshold = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.threshold_start, decay_steps, self.threshold_end, power=1.0
+        )
+                
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder.is_binary_variable, 
+                optimizers.Bop2ndOrder(
+                    threshold=threshold,
+                    gamma=gamma,
+                    sigma=sigma,
+                    name="Bop2ndOrder"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        )
+
+
+
+
+
+
+###############################################################################################        
+
+@registry.register_hparams(birealnet)
+class bop2ndOrder_unbiased_testExp(HParams):
+    epochs = 300
+    epochs_decay = 100
+    
+    train_samples = 50000
+    batch_size = 50
+    
+    threshold = 1e-5
+    threshold_decay = 0.1
+    
+    gamma = 1e-7
+    gamma_decay = 0.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    
+    sigma = 1e-3
+    sigma_decay = 0.1
+
+    
+    lr = 0.01
+    lr_decay = 0.1
+            
+        
+    @property
+    def optimizer(self):
+        decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
+    
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder_unbiased.is_binary_variable, 
+                optimizers.Bop2ndOrder_unbiased(
+                    threshold=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.threshold, decay_step, self.threshold_decay, staircase=True
+                    ),
+                    gamma=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.gamma, decay_step, self.gamma_decay, staircase=True
+                    ),
+                    sigma=tf.keras.optimizers.schedules.ExponentialDecay(
+                        self.sigma, decay_step, self.sigma_decay, staircase=True
+                    ),
+                    name="Bop2ndOrder_unbiased"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(
+                tf.keras.optimizers.schedules.ExponentialDecay(
+                    self.lr, decay_step, self.lr_decay, staircase=True
+                ),
+            ),  # for FP weights
+        )
+        
+
+
+@registry.register_hparams(birealnet)
+class bop2ndOrder_unbiased_testPoly(HParams):
+    epochs = 300
+    epochs_decay = 300
+    
+    train_samples = 1281167
+    batch_size = 50
+    
+    
+    threshold_start = 1e-5
+    threshold_end = 1e-7
+    
+    
+    gamma_start = 1e-7
+    gamma_end = 1e-8
+    
+    sigma_start = 1e-3
+    sigma_end = 1e-5
+    
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+    
+    
+    @property
+    def optimizer(self):
+        decay_steps = self.epochs_decay * self.train_samples // self.batch_size
+         
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_steps, self.lr_end, power=1.0
+        )
+        
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_steps, self.gamma_end, power=1.0
+        )
+        
+        sigma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.sigma_start, decay_steps, self.sigma_end, power=1.0
+        )
+        
+        threshold = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.threshold_start, decay_steps, self.threshold_end, power=1.0
+        )
+                
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder_unbiased.is_binary_variable, 
+                optimizers.Bop2ndOrder_unbiased(
+                    threshold=threshold,
+                    gamma=gamma,
+                    sigma=sigma,
+                    name="Bop2ndOrder_unbiased"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        )

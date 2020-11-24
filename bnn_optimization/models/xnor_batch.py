@@ -5,119 +5,133 @@ from bnn_optimization import optimizers
 
 
 @registry.register_model
-def binarynet(hparams, input_shape, num_classes):
-    kwhparams = dict(
-        input_quantizer="ste_sign",
+def xnornet_batch(hparams, input_shape, num_classes):
+
+    kwargs = dict(
         kernel_quantizer=hparams.kernel_quantizer,
-        kernel_constraint=hparams.kernel_constraint,
+        input_quantizer="ste_sign",
+        kernel_constraint=None,
         use_bias=False,
     )
-    return tf.keras.models.Sequential(
-        [
-            # don't quantize inputs in first layer
-            lq.layers.QuantConv2D(
-                hparams.filters,
-                hparams.kernel_size,
-                kernel_quantizer=hparams.kernel_quantizer,
-                kernel_constraint=hparams.kernel_constraint,
-                use_bias=False,
-                input_shape=input_shape,
-            ),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantConv2D(
-                hparams.filters, hparams.kernel_size, padding="same", **kwhparams
-            ),
-            tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2)),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantConv2D(
-                2 * hparams.filters, hparams.kernel_size, padding="same", **kwhparams
-            ),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantConv2D(
-                2 * hparams.filters, hparams.kernel_size, padding="same", **kwhparams
-            ),
-            tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2)),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantConv2D(
-                4 * hparams.filters, hparams.kernel_size, padding="same", **kwhparams
-            ),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantConv2D(
-                4 * hparams.filters, hparams.kernel_size, padding="same", **kwhparams
-            ),
-            tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2)),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            tf.keras.layers.Flatten(),
-            lq.layers.QuantDense(hparams.dense_units, **kwhparams),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantDense(hparams.dense_units, **kwhparams),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            lq.layers.QuantDense(num_classes, **kwhparams),
-            #tf.keras.layers.BatchNormalization(scale=False),
-            tf.keras.layers.LayerNormalization(),
-            tf.keras.layers.Activation("softmax"),
-        ]
+    img_input = tf.keras.layers.Input(shape=input_shape)
+
+    x = tf.keras.layers.Conv2D(
+        96,
+        (11, 11),
+        strides=(4, 4),
+        padding="same",
+        use_bias=False,
+        input_shape=input_shape,
+        kernel_regularizer=hparams.kernel_regularizer,
+    )(img_input)
+
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-5)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = tf.keras.layers.Activation("relu")(x)
+    x = tf.keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2))(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = lq.layers.QuantConv2D(256, (5, 5), padding="same", **kwargs)(x)
+    x = tf.keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2))(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = lq.layers.QuantConv2D(384, (3, 3), padding="same", **kwargs)(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = lq.layers.QuantConv2D(384, (3, 3), padding="same", **kwargs)(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = lq.layers.QuantConv2D(256, (3, 3), padding="same", **kwargs)(x)
+    x = tf.keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2))(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = lq.layers.QuantConv2D(4096, (6, 6), padding="valid", **kwargs)(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-4)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+
+    # Equivalent to a dense layer
+    x = lq.layers.QuantConv2D(4096, (1, 1), strides=(1, 1), padding="valid", **kwargs)(
+        x
     )
+    x = tf.keras.layers.BatchNormalization(momentum=0.9, scale=True, epsilon=1e-3)(x)
+    #x = tf.keras.layers.LayerNormalization()(x)
+    x = tf.keras.layers.Activation("relu")(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(
+        num_classes, use_bias=False, kernel_regularizer=hparams.kernel_regularizer
+    )(x)
+    x = tf.keras.layers.Activation("softmax")(x)
+
+    return tf.keras.models.Model(img_input, x)
 
 
-@registry.register_hparams(binarynet)
-class default(HParams):
+@registry.register_hparams(xnornet_batch)
+class bop(HParams):
     epochs = 100
-    filters = 128
-    dense_units = 1024
-    kernel_size = 3
-    batch_size = 256
-    kernel_quantizer = "ste_sign"
-    kernel_constraint = "weight_clip"
-
-
-
-
-
-###############################################################################################
-
-@registry.register_hparams(binarynet)
-class bop(default):
-    batch_size = 100
+    epochs_decay = 100
+    
+    train_samples = 1281167
+    batch_size = 1024
+    
     kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
-    kernel_constraint = None
-    threshold = 1e-6
-    gamma = 1e-3
-    lr = 0.01
-      
+
+    threshold = 1e-8
+
+    gamma_start = 1e-4
+    gamma_end = 1e-6
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
+
     @property
     def optimizer(self):
+        decay_step = self.epochs_decay * self.train_samples // self.batch_size
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_step, end_learning_rate=self.lr_end, power=1.0
+        )
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_step, end_learning_rate=self.gamma_end, power=1.0
+        )
+        
+        
         return lq.optimizers.CaseOptimizer(
             (optimizers.Bop.is_binary_variable, 
                 optimizers.Bop(
                     threshold=self.threshold,
-                    gamma=self.gamma,
+                    gamma=gamma,
                     name="Bop"
                 )
             ),
-            default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
-        )
-        
-@registry.register_hparams(binarynet)
-class bop2ndOrder(default):
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        ) 
+
+
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder(HParams):
     batch_size = 100
     kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
     kernel_constraint = None
     threshold = 1e-6
-    gamma = 1e-7
-    sigma = 1e-3
+    gamma = 1e-6
+    sigma = 1e-2
     lr = 0.01
-    
+
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
+
     @property
     def optimizer(self):
+
+        
         return lq.optimizers.CaseOptimizer(
             (optimizers.Bop2ndOrder.is_binary_variable, 
                 optimizers.Bop2ndOrder(
@@ -128,22 +142,30 @@ class bop2ndOrder(default):
                 )
             ),
             default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
-        )
-
+        ) 
         
-@registry.register_hparams(binarynet)
-class bop2ndOrder_unbiased(default):
+        
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_unbiased(HParams):
     batch_size = 100
     kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
     kernel_constraint = None
     threshold = 1e-6
-    gamma = 1e-7
-    sigma = 1e-3
+    gamma = 1e-6
+    sigma = 1e-2
     lr = 0.01
 
-    
+
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
+
     @property
     def optimizer(self):
+
+        
         return lq.optimizers.CaseOptimizer(
             (optimizers.Bop2ndOrder_unbiased.is_binary_variable, 
                 optimizers.Bop2ndOrder_unbiased(
@@ -154,52 +176,12 @@ class bop2ndOrder_unbiased(default):
                 )
             ),
             default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
-        )
+        )   
         
-
-
-
-@registry.register_hparams(binarynet)
-class bop_sec52(default):
-    epochs = 500
-    epochs_decay = 100
-    
-    train_samples = 50000
-    batch_size = 50
-    
-    kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
-    kernel_constraint = None
-    threshold = 1e-8
-    gamma = 1e-4
-    gamma_decay = 0.1
-    
-    lr = 0.01
-        
-    @property
-    def optimizer(self):
-        decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
-    
-        return lq.optimizers.CaseOptimizer(
-            (optimizers.Bop.is_binary_variable, 
-                optimizers.Bop(
-                    threshold=self.threshold,
-                    gamma=tf.keras.optimizers.schedules.ExponentialDecay(
-                        self.gamma, decay_step, self.gamma_decay, staircase=True
-                    ),
-                    name="Bop"
-                )
-            ),
-            default_optimizer=tf.keras.optimizers.Adam(self.lr),  # for FP weights
-        )
-
-
-
-
-
 ###############################################################################################
 
-@registry.register_hparams(binarynet)
-class bop_testExp(default):
+@registry.register_hparams(xnornet_batch)
+class bop_testExp(HParams):
     epochs = 100
     epochs_decay = 100
     
@@ -218,7 +200,12 @@ class bop_testExp(default):
     
     lr = 0.01
     lr_decay = 0.1
+    
+    regularization_quantity = 5e-7
 
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
     
     @property
     def optimizer(self):
@@ -245,13 +232,13 @@ class bop_testExp(default):
         
         
 
-@registry.register_hparams(binarynet)
-class bop_testPoly(default):
+@registry.register_hparams(xnornet_batch)
+class bop_testPoly(HParams):
     epochs = 100
     epochs_decay = 100
     
     train_samples = 1281167
-    batch_size = 50
+    batch_size = 100
     
     kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
     kernel_constraint = None
@@ -266,6 +253,11 @@ class bop_testPoly(default):
     lr_start = 2.5e-3
     lr_end = 5e-6
     
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
     
     @property
     def optimizer(self):
@@ -299,11 +291,11 @@ class bop_testPoly(default):
 
 
 
+
 ###############################################################################################
 
-
-@registry.register_hparams(binarynet)
-class bop2ndOrder_testExp(default):
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_testExp(HParams):
     epochs = 300
     epochs_decay = 100
     
@@ -325,9 +317,14 @@ class bop2ndOrder_testExp(default):
     
     lr = 0.01
     lr_decay = 0.1
+        
+        
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)    
     
-        
-        
     @property
     def optimizer(self):
         decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
@@ -356,31 +353,36 @@ class bop2ndOrder_testExp(default):
         
 
 
-@registry.register_hparams(binarynet)
-class bop2ndOrder_testPoly(default):
-    epochs = 300
-    epochs_decay = 300
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_testPoly(HParams):
+    epochs = 100
+    epochs_decay = 100
     
     train_samples = 1281167
-    batch_size = 50
+    batch_size = 1024
     
     kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
     kernel_constraint = None
     
-    threshold_start = 1e-5
-    threshold_end = 1e-7
+    threshold_start = 1e-8
+    threshold_end = 1e-5
     
     
-    gamma_start = 1e-7
-    gamma_end = 1e-8
+    gamma_start = 1e-4
+    gamma_end = 1e-9
     
-    sigma_start = 1e-3
-    sigma_end = 1e-5
+    sigma_start = 1e-5
+    sigma_end = 1e-2
     
 
     lr_start = 2.5e-3
     lr_end = 5e-6
     
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
     
     @property
     def optimizer(self):
@@ -414,17 +416,80 @@ class bop2ndOrder_testPoly(default):
             ),
             default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
         )
+
+
+
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_ImageNet(HParams):
+    epochs = 100
+    epochs_decay = 100
+    
+    train_samples = 1281167
+    batch_size = 1024
+    
+    kernel_quantizer = lq.quantizers.NoOpQuantizer(precision=1)
+    kernel_constraint = None
+    
+    threshold_start = 1e-8
+    threshold_end = 1e-5
+    
+    
+    gamma_start = 1e-4
+    gamma_end = 1e-9
+    
+    sigma_start = 1e-5
+    sigma_end = 1e-2
+    
+
+    lr_start = 2.5e-3
+    lr_end = 5e-6
+    
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
+    
+    @property
+    def optimizer(self):
+        decay_steps = self.epochs_decay * self.train_samples // self.batch_size
+         
+        lr = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.lr_start, decay_steps, self.lr_end, power=1.0
+        )
         
-    
-    
-    
-    
-    
-###############################################################################################
+        gamma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.gamma_start, decay_steps, self.gamma_end, power=1.0
+        )
+        
+        sigma = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.sigma_start, decay_steps, self.sigma_end, power=1.0
+        )
+        
+        threshold = tf.keras.optimizers.schedules.PolynomialDecay(
+            self.threshold_start, decay_steps, self.threshold_end, power=1.0
+        )
+                
+        
+        return lq.optimizers.CaseOptimizer(
+            (optimizers.Bop2ndOrder.is_binary_variable, 
+                optimizers.Bop2ndOrder(
+                    threshold=threshold,
+                    gamma=gamma,
+                    sigma=sigma,
+                    name="Bop2ndOrder"
+                )
+            ),
+            default_optimizer=tf.keras.optimizers.Adam(lr),  # for FP weights
+        )
 
 
-@registry.register_hparams(binarynet)
-class bop2ndOrder_unbiased_testExp(default):
+
+
+###############################################################################################        
+
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_unbiased_testExp(HParams):
     epochs = 300
     epochs_decay = 100
     
@@ -447,7 +512,12 @@ class bop2ndOrder_unbiased_testExp(default):
     lr = 0.01
     lr_decay = 0.1
         
-        
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
+    
     @property
     def optimizer(self):
         decay_step = int((self.train_samples / self.batch_size) * self.epochs_decay)
@@ -469,15 +539,15 @@ class bop2ndOrder_unbiased_testExp(default):
             ),
             default_optimizer=tf.keras.optimizers.Adam(
                 tf.keras.optimizers.schedules.ExponentialDecay(
-                    self.lr, decay_step, self.lr_decay, staircase=True
+                    self.lr, self.decay_step, self.lr_decay, staircase=True
                 ),
             ),  # for FP weights
         )
         
 
 
-@registry.register_hparams(binarynet)
-class bop2ndOrder_unbiased_testPoly(default):
+@registry.register_hparams(xnornet_batch)
+class bop2ndOrder_unbiased_testPoly(HParams):
     epochs = 300
     epochs_decay = 300
     
@@ -501,6 +571,11 @@ class bop2ndOrder_unbiased_testPoly(default):
     lr_start = 2.5e-3
     lr_end = 5e-6
     
+    regularization_quantity = 5e-7
+
+    @property
+    def kernel_regularizer(self):
+        return tf.keras.regularizers.l2(self.regularization_quantity)
     
     @property
     def optimizer(self):
