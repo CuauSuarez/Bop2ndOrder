@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/github/license/CuauSuarez/rethinking-bnn-optimization.svg)](https://github.com/CuauSuarez/BopAndBeyond/blob/conference/LICENSE) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-Implementation for paper "[Bop and Beyond: A Second Order Optimizer for Binarized Neural Networks]()".
+Implementation for paper "Bop and Beyond: A Second Order Optimizer for Binarized Neural Networks".
 
 Great part of this code was adapted from [Bop](https://github.com/plumerai/rethinking-bnn-optimization)
 
@@ -13,7 +13,6 @@ Great part of this code was adapted from [Bop](https://github.com/plumerai/rethi
 - [Larq](https://github.com/larq/larq) version `0.10.0`
 - [Zookeeper](https://github.com/plumerai/zookeeper) version `0.5.5`
 
-You can also check out one of our prebuilt [docker images](https://hub.docker.com/r/plumerai/deep-learning/tags).
 
 ## Installation
 
