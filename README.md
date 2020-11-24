@@ -1,6 +1,6 @@
 # Rethinking Binarized Neural Network Optimization
 
-[![License: Apache 2.0](https://img.shields.io/github/license/CuauSuarez/rethinking-bnn-optimization.svg)](https://github.com/CuauSuarez/Bop2ndOrder/blob/conference/LICENSE) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+[![License: Apache 2.0](https://img.shields.io/github/license/plumerai/rethinking-bnn-optimization.svg)](https://github.com/CuauSuarez/Bop2ndOrder/blob/conference/LICENSE) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 Implementation for paper "Bop and Beyond: A Second Order Optimizer for Binarized Neural Networks".
 
