@@ -1,4 +1,4 @@
-# Bop and Beyond: A Second Order Optimizer for Binarized Neural Networks
+# A Bop and Beyond: A Second Order Optimizer for Binarized Neural Networks
 
 [![arXiv:2104.05124](https://img.shields.io/badge/cs.LG-arXiv%3A2104.05124-b31b1b.svg)](https://arxiv.org/abs/2104.05124) [![License: Apache 2.0](https://img.shields.io/github/license/CuauSuarez/Bop2ndOrder.svg)](https://github.com/CuauSuarez/Bop2ndOrder/blob/master/LICENSE) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
